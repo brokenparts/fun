@@ -10,6 +10,16 @@ target_include_directories(fun INTERFACE
   "${CMAKE_CURRENT_LIST_DIR}"
 )
 
+# Add homebrew libraries to search path
+if(APPLE)
+  target_include_directories(fun INTERFACE
+    "/opt/homebrew/include"
+  )
+  target_link_directories(fun INTERFACE
+    "/opt/homebrew/lib"
+  )
+endif()
+
 #
 # Enable compiler warnings
 #
@@ -42,6 +52,19 @@ if(FUN_NEED_CGLTF)
     "${CMAKE_CURRENT_LIST_DIR}/vendor/cgltf"
   )
   target_link_libraries(fun INTERFACE fun_cgltf)
+endif()
+
+#
+# Dependency: FFmpeg
+# https://www.ffmpeg.org
+#
+if(FUN_NEED_FFMPEG)
+  target_link_libraries(fun INTERFACE
+    avcodec
+    avformat
+    avutil
+    swscale
+  )
 endif()
 
 #
