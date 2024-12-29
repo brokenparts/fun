@@ -1,3 +1,12 @@
 [submodule "common/cpp/vendor/SDL"]
 	path = common/cpp/vendor/SDL
 	url = https://github.com/libsdl-org/SDL.git
+[submodule "common/cpp/vendor/cgltf"]
+	path = common/cpp/vendor/cgltf
+	url = https://github.com/jkuhlmann/cgltf.git
+[submodule "common/cpp/vendor/libspng"]
+	path = common/cpp/vendor/libspng
+	url = https://github.com/randy408/libspng.git
+[submodule "common/cpp/vendor/HandmadeMath"]
+	path = common/cpp/vendor/HandmadeMath
+	url = https://github.com/HandmadeMath/HandmadeMath.git

@@ -31,6 +31,58 @@ endif()
 target_compile_features(fun INTERFACE cxx_std_20)
 
 #
+# Dependency: cgltf
+# https://github.com/jkuhlmann/cgltf
+#
+if(FUN_NEED_CGLTF)
+  add_library(fun_cgltf
+    "${CMAKE_CURRENT_LIST_DIR}/vendor/cgltf_impl.c"
+  )
+  target_include_directories(fun_cgltf PUBLIC
+    "${CMAKE_CURRENT_LIST_DIR}/vendor/cgltf"
+  )
+  target_link_libraries(fun INTERFACE fun_cgltf)
+endif()
+
+#
+# Dependency: Handmade math
+# https://github.com/HandmadeMath/HandmadeMath
+#
+if(FUN_NEED_HANDMADE_MATH)
+  target_include_directories(fun INTERFACE
+    "${CMAKE_CURRENT_LIST_DIR}/vendor/HandmadeMath"
+  )
+endif()
+
+#
+# Dependency: libspng
+# https://libspng.org/
+#
+if(FUN_NEED_LIBSPNG)
+  add_subdirectory("${CMAKE_CURRENT_LIST_DIR}/vendor/libspng" spng)
+  target_link_libraries(fun INTERFACE spng)
+endif()
+
+#
+# Dependency: Metal-cpp
+# https://developer.apple.com/metal/cpp/
+#
+if(FUN_NEED_METAL_CPP)
+  target_include_directories(fun INTERFACE
+    "${CMAKE_CURRENT_LIST_DIR}/vendor/metal-cpp"
+  )
+  target_link_libraries(fun INTERFACE
+    objc
+    "-framework Foundation"
+    "-framework Metal"
+  )
+  # target_link_libraries(fun INTERFACE
+  #   "-framework Metal"
+  #   "-framework MetalKit"
+  # )
+endif()
+
+#
 # Dependency: SDL
 # https://www.libsdl.org/
 #

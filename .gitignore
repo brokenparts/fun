@@ -1,2 +1,5 @@
+*.air
+*.metallib
 .cache
+.DS_Store
 build
