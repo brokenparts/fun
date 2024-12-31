@@ -63,6 +63,13 @@ static inline bool InRange(T val, T minval, T maxval) {
   return val >= minval && val <= maxval;
 }
 
+template <typename T>
+static inline void Swap(T& left, T& right) {
+  T tmp = left;
+  left = right;
+  right = tmp;
+}
+
 //
 // Memory allocation
 //

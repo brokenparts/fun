@@ -6,6 +6,8 @@
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_main.h>
 
+// https://jacco.ompf2.com/2022/04/13/how-to-build-a-bvh-part-1-basics/
+
 struct Entity {
   Vec2 pos;
   Vec2 vel;
@@ -21,6 +23,10 @@ struct AABB {
 
   Vec2 Center() {
     return (mins + maxs) / 2.0f;
+  }
+
+  Vec2 Size() {
+    return maxs - mins;
   }
 
   bool Test(Vec2 point) {
@@ -71,22 +77,19 @@ void E_Think(Entity* ent) {
     E_Steer(ent);
   }
   ent->pos += ent->vel * g.dtime;
-  if (ent->pos.x - ent->radius < 0.0f) {
-    ent->pos.x = ent->radius;
+
+  Vec2 ent_mins = ent->pos - Vec2(ent->radius, ent->radius);
+  Vec2 ent_maxs = ent->pos + Vec2(ent->radius, ent->radius);
+
+  // Collide with walls
+  if (ent_mins.x <= 0.0f || ent_maxs.x >= g.viewport.x) {
     ent->vel.x *= -1.0f;
   }
-  if (ent->pos.x + ent->radius > g.viewport.x) {
-    ent->pos.x = g.viewport.x - ent->radius;
-    ent->vel.x *= -1.0f;
-  }
-  if (ent->pos.y - ent->radius < 0.0f) {
-    ent->pos.y = ent->radius;
+  if (ent_mins.y <= 0.0f || ent_maxs.y >= g.viewport.y) {
     ent->vel.y *= -1.0f;
   }
-  if (ent->pos.y + ent->radius > g.viewport.y) {
-    ent->pos.y = g.viewport.y - ent->radius;
-    ent->vel.y *= -1.0f;
-  }
+  ent->pos.x = Clamp(ent->pos.x, ent->radius, g.viewport.x - ent->radius);
+  ent->pos.y = Clamp(ent->pos.y, ent->radius, g.viewport.y - ent->radius);
 }
 
 void E_Spawn() {
@@ -114,135 +117,133 @@ SDL_AppResult SDL_AppInit(void** appstate, int argc, char* argv[]) {
 
 struct BVH_Node {
   AABB aabb;
-  Entity* ent;
-  bool debug_hit;
-  BVH_Node* left;
-  BVH_Node* right;
-  BVH_Node* prev;
-  BVH_Node* next;
+  Entity**    ents;
+  usize       ents_count;
+  BVH_Node*   left;
+  BVH_Node*   right;
+  bool        debug_hit;
 };
 
-BVH_Node* BVH_Prepend(BVH_Node* root, BVH_Node* node) {
-  node->next = root;
-  if (root) {
-    root->prev = node;
-  }
-  return node;
-}
+struct BVH {
+  Entity**  ents;
+  usize     ents_count;
+  BVH_Node*   root;
+};
 
-void BVH_Unlink(BVH_Node* node) {
-  if (!node) {
+void BVH_BuildTopDown_Subdivide(BVH_Node* node) {
+  // Update AABB for this node
+  constexpr f32 huge_number = 9999.0f;
+  node->aabb.mins = Vec2(huge_number, huge_number);
+  node->aabb.maxs = Vec2(-huge_number, -huge_number);
+  // BVH_Entity* ent = node->e_first;
+  for (usize i = 0; i < node->ents_count; ++i) {
+    Entity* ent = node->ents[i];
+
+    node->aabb.mins.x = Min(node->aabb.mins.x, ent->pos.x - ent->radius);
+    node->aabb.mins.y = Min(node->aabb.mins.y, ent->pos.y - ent->radius);
+    node->aabb.maxs.x = Max(node->aabb.maxs.x, ent->pos.x + ent->radius);
+    node->aabb.maxs.y = Max(node->aabb.maxs.y, ent->pos.y + ent->radius);
+  }
+
+  constexpr usize max_children = 2;
+  if (node->ents_count <= max_children) {
     return;
   }
-  if (node->prev) {
-    node->prev->next = node->next;
-  }
-  if (node->next) {
-    node->next->prev = node->prev;
-  }
-  node->prev = 0;
-  node->next = 0;
-}
 
-BVH_Node* BVH_BuildBottomUp_Refine(BVH_Node* level) {
-  if (!level) {
-    return level;
-  }
-  BVH_Node* root = 0;
-  while (level) {
-    BVH_Node* left = 0;
-    BVH_Node* right = 0;
-    BVH_Node* parent = 0;
+  // Select split axis and position
+  Vec2 aabb_dims = node->aabb.Size();
+  const u8 split_axis = (aabb_dims.x >= aabb_dims.y) ? VEC_AXIS_X : VEC_AXIS_Y;
+  const f32 split_pos = node->aabb.Center().GetAxis(split_axis);
 
-    if (level->next) {
-      // At least two nodes exist - group the closest two together
-      left = level;
-      f32 closest_dist = 0.0f;
-      for (BVH_Node* other = level->next; other; other = other->next) {
-        f32 dist = (other->aabb.Center() - left->aabb.Center()).Length();
-        if (!right || dist < closest_dist) {
-          right = other;
-          closest_dist = dist;
-        }
-      }
-      assert(left && right);
-
-      parent = MemAllocZ<BVH_Node>();
-      parent->aabb = AABB_Combine(left->aabb, right->aabb);
+  // Split
+  i32 i_left = 0;
+  i32 i_right = node->ents_count - 1; // 2
+  while (i_left <= i_right) {
+    if (node->ents[i_left]->pos.GetAxis(split_axis) <= split_pos) {
+      // left
+      ++i_left;
     } else {
-      // No children - child becomes parent
-      parent = level;
-      level = level->next;
-      BVH_Unlink(parent);
+      // right
+      Swap(node->ents[i_left], node->ents[i_right]);
+      --i_right;
     }
-
-    // Remove children from working set
-    while (level && (level == left || level == right)) {
-      level = level->next;
-    }
-    BVH_Unlink(left);
-    BVH_Unlink(right);
-
-    // Prepend parent node
-    parent->left = left;
-    parent->right = right;
-    root = BVH_Prepend(root, parent);
   }
 
-  if (root->next) {
-    return BVH_BuildBottomUp_Refine(root);
+  // Handle edge case where all entities are in the same position
+  if ((usize)i_left == node->ents_count) {
+    i_left = node->ents_count / 2;
   }
 
-  return root;
+  node->left = MemAllocZ<BVH_Node>();
+  node->left->ents = node->ents;
+  node->left->ents_count = i_left;
+  node->right = MemAllocZ<BVH_Node>();
+  node->right->ents = node->ents + i_left;
+  node->right->ents_count = node->ents_count - i_left;
+  BVH_BuildTopDown_Subdivide(node->left);
+  BVH_BuildTopDown_Subdivide(node->right);
 }
 
 // Bottom-up
-BVH_Node* BVH_BuildBottomUp() {
-  BVH_Node* nodes = 0;
+BVH* BVH_BuildTopDown() {
+  BVH* bvh = MemAllocZ<BVH>();
+  // Copy entity list into array
   for (Entity* ent = g.ents; ent; ent = ent->next) {
-    BVH_Node* node = MemAllocZ<BVH_Node>();
-    node->aabb.mins = ent->pos - Vec2(ent->radius, ent->radius);
-    node->aabb.maxs = ent->pos + Vec2(ent->radius, ent->radius);
-    node->ent = ent;
-    nodes = BVH_Prepend(nodes, node);
+    ++bvh->ents_count;
   }
-
-  return BVH_BuildBottomUp_Refine(nodes);
+  bvh->ents = MemAllocZ<Entity*>(bvh->ents_count);
+  Entity* ent = g.ents;
+  for (usize i = 0; i < bvh->ents_count; ++i) {
+    bvh->ents[i] = ent;
+    ent = ent->next;
+  }
+  // Create root node with all entities
+  bvh->root = MemAllocZ<BVH_Node>();
+  bvh->root->ents = bvh->ents;
+  bvh->root->ents_count = bvh->ents_count;
+  // Recursively subdivide
+  if (bvh->root->ents_count > 0) {
+    BVH_BuildTopDown_Subdivide(bvh->root);
+  }
+  return bvh;
 };
 
-void BVH_Free(BVH_Node* bvh) {
-  if (!bvh) {
-    return;
+void BVH_FreeNode(BVH_Node* node) {
+  if (node->left) {
+    BVH_FreeNode(node->left);
   }
-  if (bvh->left) {
-    BVH_Free(bvh->left);
+  if (node->right) {
+    BVH_FreeNode(node->right);
   }
-  if (bvh->right) {
-    BVH_Free(bvh->right);
-  }
-  MemFree(bvh);
+  MemFree(node);
 }
 
-void BVH_DrawRecursive(BVH_Node* node) {
-  if (node && node->left && node->right) {
-    BVH_DrawRecursive(node->left);
-    BVH_DrawRecursive(node->right);
-    SDL_FRect rect = {
-      .x = node->aabb.mins.x,
-      .y = node->aabb.mins.y,
-      .w = node->aabb.maxs.x - node->aabb.mins.x,
-      .h = node->aabb.maxs.y - node->aabb.mins.y,
-    };
-    if (node->debug_hit) {
-      SDL_SetRenderDrawColor(g.r, 0xFF, 0xFF, 0x00, 0xFF);
-    } else {
-      SDL_SetRenderDrawColor(g.r, 0x00, 0x00, 0xFF, 0xFF);
-    }
-    SDL_RenderRect(g.r, &rect);
-    if (g.debug_flags & DEBUG_BVH_VOLUME) {
-      SDL_RenderDebugTextFormat(g.r, node->aabb.mins.x, node->aabb.mins.y, "<%.0f, %.0f>",
-        node->aabb.maxs.x - node->aabb.mins.x, node->aabb.maxs.y - node->aabb.mins.y);
-    }
+void BVH_Free(BVH* bvh) {
+  MemFree(bvh->ents);
+  BVH_FreeNode(bvh->root);
+}
+
+void BVH_DrawRecursive(BVH_Node* node, u32 depth=0) {
+  if (!node || !node->ents_count) {
+    return;
+  }
+  BVH_DrawRecursive(node->left, depth + 1);
+  BVH_DrawRecursive(node->right, depth + 1);
+  SDL_FRect rect = {
+    .x = node->aabb.mins.x,
+    .y = node->aabb.mins.y,
+    .w = node->aabb.maxs.x - node->aabb.mins.x,
+    .h = node->aabb.maxs.y - node->aabb.mins.y,
+  };
+  if (node->debug_hit) {
+    SDL_SetRenderDrawColor(g.r, 0xFF, 0xFF, 0x00, 0xFF);
+  } else {
+    SDL_SetRenderDrawColor(g.r, 0xFF, 0x00, 0x00, 0xFF);
+  }
+  SDL_RenderRect(g.r, &rect);
+  if (g.debug_flags & DEBUG_BVH_VOLUME) {
+    SDL_RenderDebugTextFormat(g.r, node->aabb.mins.x, node->aabb.mins.y, "<%.0f, %.0f>, d=%u",
+    node->aabb.maxs.x - node->aabb.mins.x, node->aabb.maxs.y - node->aabb.mins.y, depth);
   }
 }
 
@@ -286,9 +287,9 @@ SDL_AppResult SDL_AppIterate(void* appstate) {
   // Compute BVH
   //
 
-  BVH_Node* bvh = BVH_BuildBottomUp();
+  BVH* bvh = BVH_BuildTopDown();
 
-  BVH_HitTest(bvh);
+  BVH_HitTest(bvh->root);
 
   //
   // Draw
@@ -308,8 +309,7 @@ SDL_AppResult SDL_AppIterate(void* appstate) {
     SDL_RenderRect(g.r, &rect);
   }
 
-  SDL_SetRenderDrawColor(g.r, 0xFF, 0x00, 0x00, 0xFF);
-  BVH_DrawRecursive(bvh);
+  BVH_DrawRecursive(bvh->root);
 
   if (g.debug_flags & DEBUG_ENTITY_STATE) {
     for (Entity* ent = g.ents; ent; ent = ent->next) {
@@ -335,13 +335,18 @@ SDL_AppResult SDL_AppIterate(void* appstate) {
   };
 
   PushDebugString("[State]");
-  PushDebugString("  Time:  %.2f", g.time);
-  PushDebugString("  Delta: %.2fms (%u FPS)", g.dtime, (u32)(1000.0f / g.dtime));
+  PushDebugString("  Time:   %.2f", g.time);
+  PushDebugString("  Delta:  %.2fms (%u FPS)", g.dtime * 1000.0f, (u32)(1.0f / g.dtime));
+  PushDebugString("  Cursor: <%.0f, %.0f>", g.cursor.x, g.cursor.y);
+  // PushDebugString("  Root:   <%.0f, %.0f> <%.0f, %.0f>",
+  //   bvh->root->aabb.mins.x, bvh->root->aabb.mins.y,
+  //   bvh->root->aabb.maxs.x, bvh->root->aabb.maxs.y);
   PushDebugString("[Controls]");
   PushDebugString("  Space: Spawn entity");
   PushDebugString("  1:     Toggle entity state debug");
   PushDebugString("  2:     Toggle BVH volume debug");
   PushDebugString("  3:     Pause entity simulation");
+  PushDebugString("  4:     Remove all entities");
 
   BVH_Free(bvh);
   
@@ -354,7 +359,9 @@ SDL_AppResult SDL_AppEvent(void* appstate, SDL_Event* event) {
   case SDL_EVENT_KEY_DOWN: {
     switch (event->key.key) {
     case SDLK_SPACE: {
-      E_Spawn();
+      for (int i = 0; i < 1; ++i) {
+        E_Spawn();
+      }  
     } break;
     case SDLK_1: {
       g.debug_flags ^= DEBUG_ENTITY_STATE;
@@ -364,6 +371,14 @@ SDL_AppResult SDL_AppEvent(void* appstate, SDL_Event* event) {
     } break;
     case SDLK_3: {
       g.debug_flags ^= DEBUG_FREEZE;
+    } break;
+    case SDLK_4: {
+      Entity* next = 0;
+      for (Entity* ent = g.ents; ent; ent = next) {
+        next = ent->next;
+        MemFree(ent);
+      }
+      g.ents = 0;
     } break;
   }
   } break;

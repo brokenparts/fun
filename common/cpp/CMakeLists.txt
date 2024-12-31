@@ -33,8 +33,8 @@ endif()
 # Enable AddressSanitizer
 #
 if(NOT MSVC)
-  target_compile_options(fun INTERFACE -fsanitize=address)
-  target_link_options(fun INTERFACE -fsanitize=address)
+  target_compile_options(fun INTERFACE -fsanitize=address -g)
+  target_link_options(fun INTERFACE -fsanitize=address -g)
 endif()
 
 # Use C++20

@@ -9,6 +9,11 @@
 // Vector types
 //
 
+enum : u8 {
+  VEC_AXIS_X = 0,
+  VEC_AXIS_Y,
+};
+
 class Vec2 {
 public:
   f32 x = 0.0f;
@@ -46,6 +51,14 @@ public:
   }
   Vec2 operator/=(f32 divisor) {
     return (*this = *this / divisor);
+  }
+
+  inline f32 GetAxis(u8 axis) {
+    switch (axis) {
+    case VEC_AXIS_X: { return x; }
+    case VEC_AXIS_Y: { return y; }
+    default: { assert(0); }
+    }
   }
 
   inline f32 Dot(const Vec2& rhs) const {
