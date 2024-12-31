@@ -10,3 +10,6 @@
 [submodule "common/cpp/vendor/HandmadeMath"]
 	path = common/cpp/vendor/HandmadeMath
 	url = https://github.com/HandmadeMath/HandmadeMath.git
+[submodule "common/cpp/vendor/zlib-ng"]
+	path = common/cpp/vendor/zlib-ng
+	url = https://github.com/zlib-ng/zlib-ng.git

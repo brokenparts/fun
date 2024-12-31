@@ -3,6 +3,9 @@ add_library(fun INTERFACE)
 # Generate compile_commands.json
 set(CMAKE_EXPORT_COMPILE_COMMANDS TRUE)
 
+# Export DLLs to bin/
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_SOURCE_DIR}/bin")
+
 #
 # Common headers
 #
@@ -96,8 +99,16 @@ endif()
 # https://libspng.org/
 #
 if(FUN_NEED_LIBSPNG)
-  add_subdirectory("${CMAKE_CURRENT_LIST_DIR}/vendor/libspng" spng)
-  target_link_libraries(fun INTERFACE spng)
+  set(FUN_NEED_ZLIB TRUE)
+  add_library(fun_spng
+    "${CMAKE_CURRENT_LIST_DIR}/vendor/libspng/spng/spng.c"
+  )
+  target_include_directories(fun_spng PUBLIC
+    "${CMAKE_CURRENT_LIST_DIR}/vendor/libspng/spng"
+  )
+  target_compile_definitions(fun_spng PUBLIC SPNG_STATIC)
+  target_link_libraries(fun_spng PRIVATE zlib)
+  target_link_libraries(fun INTERFACE fun_spng)
 endif()
 
 #
@@ -113,10 +124,6 @@ if(FUN_NEED_METAL_CPP)
     "-framework Foundation"
     "-framework Metal"
   )
-  # target_link_libraries(fun INTERFACE
-  #   "-framework Metal"
-  #   "-framework MetalKit"
-  # )
 endif()
 
 #
@@ -126,4 +133,13 @@ endif()
 if(FUN_NEED_SDL)
   add_subdirectory("${CMAKE_CURRENT_LIST_DIR}/vendor/SDL" SDL)
   target_link_libraries(fun INTERFACE SDL3::SDL3)
+endif()
+
+#
+# Dependency: zlib-ng
+# https://github.com/zlib-ng/zlib-ng
+#
+if(FUN_NEED_ZLIB)
+  set(ZLIB_COMPAT TRUE)
+  add_subdirectory("${CMAKE_CURRENT_LIST_DIR}/vendor/zlib-ng" zlib)
 endif()
