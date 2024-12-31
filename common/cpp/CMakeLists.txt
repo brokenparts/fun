@@ -68,6 +68,20 @@ if(FUN_NEED_FFMPEG)
 endif()
 
 #
+# Dependency: glad (3.3)
+# https://glad.dav1d.de/
+#
+if(FUN_NEED_GLAD33)
+  add_library(fun_glad33
+    "${CMAKE_CURRENT_LIST_DIR}/vendor/glad33/src/glad.c"
+  )
+  target_include_directories(fun_glad33 PUBLIC
+    "${CMAKE_CURRENT_LIST_DIR}/vendor/glad33/include"
+  )
+  target_link_libraries(fun INTERFACE fun_glad33)
+endif()
+
+#
 # Dependency: Handmade math
 # https://github.com/HandmadeMath/HandmadeMath
 #
