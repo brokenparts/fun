@@ -44,6 +44,19 @@ endif()
 target_compile_features(fun INTERFACE cxx_std_20)
 
 #
+# Dependency: FFmpeg
+# https://www.ffmpeg.org
+#
+if(FUN_NEED_FFMPEG)
+  target_link_libraries(fun INTERFACE
+    avcodec
+    avformat
+    avutil
+    swscale
+  )
+endif()
+
+#
 # Dependency: SDL
 # https://www.libsdl.org/
 #
