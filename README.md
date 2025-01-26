@@ -1,4 +1,4 @@
-This is a collection of small demo programs I've written. All code here is available under the [MIT license](LICENSE).
+All code is available under the [MIT license](LICENSE).
 
 | Program                   | Description                                     |
 | ------------------------- | ----------------------------------------------- |
