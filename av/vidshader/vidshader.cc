@@ -31,6 +31,20 @@ void main() {
 }
 )""";
 
+const char* DEFAULT_FRAGMENT_SHADER = R"""(#version 330 core
+
+in vec2 texcoord;
+
+out vec4 color;
+
+uniform sampler2D u_sampler;
+
+void main() {
+  color = vec4(texture(u_sampler, texcoord).rgb, 1.0f);
+}
+
+)""";
+
 GLuint LoadAndCompileShader(GLenum type, const char* source) {
   GLuint shader = glCreateShader(type);
   glShaderSource(shader, 1, &source, 0);
@@ -38,7 +52,9 @@ GLuint LoadAndCompileShader(GLenum type, const char* source) {
   GLint status = 0;
   glGetShaderiv(shader, GL_COMPILE_STATUS, &status);
   if (!status) {
-    SDL_Log("Failed to compile shader");
+    char log[1024] = { };
+    glGetShaderInfoLog(shader, sizeof(log), 0, log);
+    SDL_Log("Failed to compile shader: %s", log);
     exit(1);
     return -1;
   }
@@ -67,6 +83,7 @@ static struct {
   GLuint quad_vbo;
   GLuint quad_ibo;
   GLuint program;
+  GLuint program_default;
   GLuint texture;
   Vec2 resolution;
   AVFormatContext* avfc;
@@ -75,6 +92,7 @@ static struct {
   AVCodecContext* avcc;
   SwsContext* sws_ctx;
   bool paused;
+  bool show_original;
 } g = { };
 
 SDL_AppResult SDL_AppInit(void** appstate, int argc, char* argv[]) {
@@ -138,6 +156,8 @@ SDL_AppResult SDL_AppInit(void** appstate, int argc, char* argv[]) {
   g.program = LoadAndCompileProgram(VERTEX_SHADER, fragment_shader);
   glUseProgram(g.program);
 
+  g.program_default = LoadAndCompileProgram(VERTEX_SHADER, DEFAULT_FRAGMENT_SHADER);
+
   int ret = avformat_open_input(&g.avfc, argv[1], 0, 0);
   assert(ret == 0);
   avformat_find_stream_info(g.avfc, 0);
@@ -199,7 +219,7 @@ void GetFrameTexture() {
       return;
     }
     assert(ret == 0);
-    SDL_Log("+packet");
+    // SDL_Log("+packet");
 
     if (pkt->stream_index == g.avfc_video_stream) {
       ret = avcodec_send_packet(g.avcc, pkt);
@@ -207,7 +227,7 @@ void GetFrameTexture() {
       ret = avcodec_receive_frame(g.avcc, frame);
       if (ret != AVERROR(EAGAIN)) {
         assert(ret == 0);
-        SDL_Log("+frame");
+        // SDL_Log("+frame");
         got_frame = true;
       }
     }
@@ -240,6 +260,11 @@ SDL_AppResult SDL_AppIterate(void* appstate) {
     GetFrameTexture();
   }
 
+  GLuint program = g.show_original ? g.program_default : g.program;
+
+  glUseProgram(program);
+  glUniform2fv(glGetUniformLocation(program, "u_resolution"), 1, &g.resolution.x);
+
   glViewport(0, 0, (GLsizei)g.resolution.x, (GLsizei)g.resolution.y);
   glClearColor(0.0f, 0.05, 0.06f, 1.0f);
   glClear(GL_COLOR_BUFFER_BIT);
@@ -258,6 +283,14 @@ SDL_AppResult SDL_AppEvent(void* appstate, SDL_Event* event) {
   case SDL_EVENT_KEY_DOWN: {
     if (event->key.key == SDLK_SPACE) {
       g.paused = !g.paused;
+    }
+    else if (event->key.key == SDLK_TAB) {
+      g.show_original = true;
+    }
+  } break;
+  case SDL_EVENT_KEY_UP: {
+    if (event->key.key == SDLK_TAB) {
+      g.show_original = false;
     }
   } break;
   };
