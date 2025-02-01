@@ -57,6 +57,15 @@ if(FUN_NEED_FFMPEG)
 endif()
 
 #
+# Dependency: FreeType
+# https://freetype.org/
+#
+if(FUN_NEED_FREETYPE)
+  add_subdirectory("${CMAKE_CURRENT_LIST_DIR}/thirdparty/freetype" freetype)
+  target_link_libraries(fun INTERFACE freetype)
+endif()
+
+#
 # Dependency: Glad (3.3)
 # https://glad.dav1d.de/
 #

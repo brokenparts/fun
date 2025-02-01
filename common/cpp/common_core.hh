@@ -1,10 +1,38 @@
 #ifndef _COMMON_CORE_HH_
 #define _COMMON_CORE_HH_
 
+//
+// Platform detection
+//
+
+#if defined(_WIN32)
+# define FUN_WINDOWS
+#elif defined(__APPLE__)
+# define FUN_APPLE
+#elif defined(__linux__)
+# define FUN_LINUX
+#else
+# error Unknown platform
+#endif
+
+#if defined(FUN_APPLE) || defined(FUN_LINUX)
+# define FUN_POSIX
+#endif
+
+//
+// Other headers
+//
+
 #include <cassert>
 #include <cstddef>
 #include <cstdint>
+#include <cstdio>
 #include <cstdlib>
+#include <cstring>
+
+#ifdef FUN_POSIX
+# include <unistd.h>
+#endif
 
 //
 // Fixed-size integer types
@@ -92,5 +120,31 @@ template <typename T>
 static inline void MemFree(T* ptr) {
   std::free(ptr);
 }
+
+//
+// CWD reset
+//
+
+static inline void _ResetCWDToSourceDir(const char* source_file) {
+  char buf[1024] = { };
+  std::strncpy(buf, source_file, sizeof(buf));
+  char* last_delim = 0;
+  for (usize i = 0; i < sizeof(buf); ++i) {
+    if (buf[i] == '/' || buf[i] == '\\') {
+      last_delim = &buf[i];
+    }
+  }
+  if (last_delim) {
+    *last_delim = '\0';
+  }
+  std::printf("Changing working directory to %s: ", buf);
+  if (chdir(buf) == 0) {
+    std::printf("Success\n");
+  } else {
+    std::printf("Failed\n");
+  }
+}
+
+#define RESET_CWD_TO_SOURCE_DIR() _ResetCWDToSourceDir(__FILE__)
 
 #endif // _COMMON_CORE_HH_

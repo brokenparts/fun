@@ -1,3 +1,6 @@
 [submodule "common/cpp/thirdparty/SDL"]
 	path = common/cpp/thirdparty/SDL
 	url = git@github.com:libsdl-org/SDL.git
+[submodule "common/cpp/thirdparty/freetype"]
+	path = common/cpp/thirdparty/freetype
+	url = https://github.com/freetype/freetype.git
