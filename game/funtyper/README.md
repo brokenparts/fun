@@ -1,0 +1,1 @@
+![](/game/funtyper/screenshot.png)
