@@ -103,6 +103,14 @@ static inline void Swap(T& left, T& right) {
   right = tmp;
 }
 
+static inline f32 Remap(f32 val, f32 min1, f32 max1, f32 min2, f32 max2) {
+  return min2 + (val - min1) * (max2 - min2) / (max1 - min1);
+}
+
+static inline f32 RemapClamp(f32 val, f32 min1, f32 max1, f32 min2, f32 max2) {
+  return Clamp(Remap(val, min1, max1, min2, max2), min2, max2);
+}
+
 //
 // Memory allocation
 //
