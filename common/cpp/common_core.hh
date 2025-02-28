@@ -34,6 +34,11 @@
 # include <unistd.h>
 #endif
 
+#ifdef FUN_WINDOWS
+# include <Windows.h>
+# include <direct.h>
+#endif
+
 //
 // Fixed-size integer types
 //

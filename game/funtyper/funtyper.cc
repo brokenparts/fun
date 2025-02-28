@@ -170,8 +170,8 @@ void FT_Draw(FontRenderer* fr, u16 height, Color color, Vec2 pos, const char* te
     SDL_FRect dst_rect = {
       .x = pos.x + gi->bearing.x,
       .y = pos.y - gi->bearing.y,
-      src_rect.w,
-      src_rect.h,
+      .w = src_rect.w,
+      .h = src_rect.h,
     };
     SDL_RenderTexture(g.r, atlas->texture, &src_rect, &dst_rect);
     pos += gi->advance;

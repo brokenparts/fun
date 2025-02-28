@@ -1,5 +1,6 @@
 *.mkv
 .DS_Store
 .cache
+.vs
 bin
 build
